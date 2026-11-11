@@ -1,0 +1,26 @@
+alertmanager:
+  enabled: false
+
+prometheus-pushgateway:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: false
+
+kube-state-metrics:
+  enabled: true
+
+server:
+  service:
+    servicePort: 9090
+  persistentVolume:
+    enabled: false
+
+configmapReload:
+  prometheus:
+    enabled: false
+
+extraScrapeConfigs: |
+  - job_name: ai-inference
+    static_configs:
+      - targets: ["ai-inference:8000"]

@@ -1,0 +1,27 @@
+admin:
+  existingSecret: grafana-admin
+  userKey: admin-user
+  passwordKey: admin-password
+
+persistence:
+  enabled: false
+
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+
+grafana.ini:
+  server:
+    root_url: "http://localhost:8080/grafana/"
+    serve_from_sub_path: true
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server:9090
+        access: proxy
+        isDefault: true

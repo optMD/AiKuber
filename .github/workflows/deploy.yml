@@ -1,0 +1,62 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DH_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [gateway, frontend, ai-inference]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: infra/services/${{ matrix.service }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/niaspo-${{ matrix.service }}:${{ github.sha }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: helm/kind-action@v1
+        with:
+          config: infra/kind-config.yaml
+          cluster_name: niaspo
+      - uses: azure/setup-helm@v4
+      - name: Secrets
+        run: infra/scripts/create-secrets.sh
+      - name: Helm charts
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add grafana https://grafana.github.io/helm-charts
+          helm repo update
+          helm upgrade --install prometheus prometheus-community/prometheus -n niaspo -f infra/helm/prometheus-values.yaml
+          helm upgrade --install grafana grafana/grafana -n niaspo -f infra/helm/grafana-values.yaml
+      - name: Apply manifests with Docker Hub images
+        run: |
+          kubectl kustomize infra/k8s \
+            | sed -E "s#image: niaspo-(gateway|frontend|ai-inference):dev#image: ${DH_USER}/niaspo-\1:${GITHUB_SHA}#" \
+            | kubectl apply -f -
+      - name: Wait for rollout
+        run: |
+          for deploy in postgres redis ai-inference frontend gateway grafana prometheus-server; do
+            kubectl -n niaspo rollout status "deployment/$deploy" --timeout=240s
+          done
+      - name: Check
+        run: infra/scripts/check.sh
