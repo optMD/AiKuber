@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI-сервис</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; }
+    textarea { width: 100%; height: 100px; box-sizing: border-box; }
+    #answer { margin-top: 16px; white-space: pre-wrap; border: 1px solid #ccc; padding: 12px; min-height: 40px; }
+  </style>
+</head>
+<body>
+  <h1>AI-сервис</h1>
+  <textarea id="prompt" placeholder="Введите запрос"></textarea>
+  <br>
+  <button id="send">Отправить</button>
+  <div id="answer"></div>
+  <script>
+    const send = document.getElementById('send');
+    const answer = document.getElementById('answer');
+    send.addEventListener('click', async () => {
+      const prompt = document.getElementById('prompt').value.trim();
+      if (!prompt) return;
+      answer.textContent = 'Запрос выполняется...';
+      try {
+        const res = await fetch('/api/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        answer.textContent = data.answer + (data.from_cache ? '\n(ответ из кэша Redis)' : '');
+      } catch (e) {
+        answer.textContent = 'Ошибка: ' + e.message;
+      }
+    });
+  </script>
+</body>
+</html>
