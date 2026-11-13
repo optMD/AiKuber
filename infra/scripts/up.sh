@@ -13,6 +13,24 @@ for svc in gateway frontend ai-inference; do
   kind load docker-image "niaspo-$svc:dev" --name niaspo
 done
 
+EXTERNAL_IMAGES=(
+  postgres:16-alpine
+  redis:7-alpine
+  grafana/grafana:12.3.1
+  quay.io/prometheus/prometheus:v3.16.0
+  registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0
+)
+
+platform="$(docker version --format '{{.Server.Os}}/{{.Server.Arch}}')"
+
+for img in "${EXTERNAL_IMAGES[@]}"; do
+  docker image inspect "$img" >/dev/null 2>&1 || docker pull "$img"
+  workdir="$(mktemp -d)"
+  docker save --platform "$platform" "$img" -o "$workdir/image.tar"
+  kind load image-archive "$workdir/image.tar" --name niaspo
+  rm -rf "$workdir"
+done
+
 "$INFRA/scripts/create-secrets.sh"
 
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts

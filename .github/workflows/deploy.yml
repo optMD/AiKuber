@@ -40,6 +40,8 @@ jobs:
           cluster_name: niaspo
       - uses: azure/setup-helm@v4
       - name: Secrets
+        env:
+          CLAUDEHUB_API_KEY: ${{ secrets.CLAUDEHUB_API_KEY }}
         run: infra/scripts/create-secrets.sh
       - name: Helm charts
         run: |
