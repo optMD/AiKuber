@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+data:
+  ai-inference.json: |
+    {
+      "annotations": {"list": []},
+      "editable": false,
+      "graphTooltip": 1,
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Запросы в минуту",
+          "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+          "targets": [{"expr": "sum(rate(ai_requests_total[5m])) * 60", "refId": "A"}],
+          "fieldConfig": {"defaults": {"unit": "reqpm"}, "overrides": []}
+        },
+        {
+          "type": "stat",
+          "title": "Доля ответов из кэша",
+          "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+          "targets": [{"expr": "100 * sum(rate(ai_cache_requests_total{result=\"hit\"}[5m])) / clamp_min(sum(rate(ai_cache_requests_total[5m])), 0.001)", "refId": "A"}],
+          "fieldConfig": {"defaults": {"unit": "percent", "decimals": 1}, "overrides": []}
+        },
+        {
+          "type": "stat",
+          "title": "Ошибки API",
+          "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+          "targets": [{"expr": "sum(rate(ai_requests_total{status=~\"4..|5..\"}[5m]))", "refId": "A"}],
+          "fieldConfig": {"defaults": {"unit": "reqps", "decimals": 3, "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 0.01}]}}, "overrides": []}
+        },
+        {
+          "type": "stat",
+          "title": "P95 задержка",
+          "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+          "targets": [{"expr": "histogram_quantile(0.95, sum(rate(ai_request_latency_seconds_bucket[5m])) by (le))", "refId": "A"}],
+          "fieldConfig": {"defaults": {"unit": "s", "decimals": 2}, "overrides": []}
+        },
+        {
+          "type": "timeseries",
+          "title": "Интенсивность запросов",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+          "targets": [{"expr": "sum by (status) (rate(ai_requests_total[5m]))", "legendFormat": "status {{status}}", "refId": "A"}],
+          "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []}
+        },
+        {
+          "type": "timeseries",
+          "title": "Задержка запросов",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+          "targets": [
+            {"expr": "histogram_quantile(0.50, sum(rate(ai_request_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p50", "refId": "A"},
+            {"expr": "histogram_quantile(0.95, sum(rate(ai_request_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p95", "refId": "B"},
+            {"expr": "histogram_quantile(0.99, sum(rate(ai_request_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p99", "refId": "C"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
+        },
+        {
+          "type": "timeseries",
+          "title": "Внешний API модели",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+          "targets": [
+            {"expr": "sum by (status) (rate(ai_upstream_requests_total[5m]))", "legendFormat": "status {{status}}", "refId": "A"},
+            {"expr": "rate(ai_upstream_retries_total[5m])", "legendFormat": "retries", "refId": "B"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []}
+        },
+        {
+          "type": "timeseries",
+          "title": "Токены модели",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+          "targets": [{"expr": "sum by (direction) (rate(ai_token_usage_total[5m]))", "legendFormat": "{{direction}}", "refId": "A"}],
+          "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
+        },
+        {
+          "type": "timeseries",
+          "title": "Перезапуски подов",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+          "targets": [{"expr": "sum by (pod) (kube_pod_container_status_restarts_total{namespace=\"niaspo\"})", "legendFormat": "{{pod}}", "refId": "A"}],
+          "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
+        },
+        {
+          "type": "timeseries",
+          "title": "Память подов",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+          "targets": [{"expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"niaspo\",container!=\"\"})", "legendFormat": "{{pod}}", "refId": "A"}],
+          "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []}
+        }
+      ],
+      "schemaVersion": 39,
+      "title": "AI Inference и Kubernetes",
+      "uid": "ai-inference",
+      "time": {"from": "now-1h", "to": "now"},
+      "timezone": "browser",
+      "version": 1
+    }

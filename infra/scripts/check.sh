@@ -41,7 +41,11 @@ echo "$second"
 jq -e '.from_cache == true' <<<"$second" >/dev/null
 
 echo "--- metrics ai-inference"
-kubectl get --raw "/api/v1/namespaces/$NS/services/ai-inference:8000/proxy/metrics" | grep -q '^ai_requests_total'
+metrics=$(kubectl get --raw "/api/v1/namespaces/$NS/services/ai-inference:8000/proxy/metrics")
+grep -q '^ai_requests_total' <<<"$metrics"
+grep -q '^ai_cache_requests_total' <<<"$metrics"
+grep -q '^ai_upstream_requests_total' <<<"$metrics"
+grep -q '^ai_upstream_latency_seconds' <<<"$metrics"
 
 echo "--- prometheus target ai-inference (up)"
 for _ in $(seq 1 40); do
@@ -55,3 +59,4 @@ jq -e '.data.activeTargets[] | select(.labels.job == "ai-inference" and .health 
 
 echo "--- grafana"
 curl -fsS -o /dev/null -w "%{http_code}\n" "$BASE/grafana/api/health"
+kubectl -n "$NS" get configmap grafana-dashboards -o jsonpath='{.data.ai-inference\\.json}' | grep -q 'AI Inference и Kubernetes'
