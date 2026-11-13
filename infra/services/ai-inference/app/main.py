@@ -30,6 +30,11 @@ RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 
 REQUESTS = Counter("ai_requests", "Запросы к /api/ask по коду ответа", ["status"])
 LATENCY = Histogram("ai_request_latency_seconds", "Время обработки запроса к /api/ask")
+CACHE_REQUESTS = Counter("ai_cache_requests", "Результаты обращений к Redis-кэшу", ["result"])
+UPSTREAM_REQUESTS = Counter("ai_upstream_requests", "Запросы к внешнему API", ["status"])
+UPSTREAM_LATENCY = Histogram("ai_upstream_latency_seconds", "Время ответа внешнего API")
+UPSTREAM_RETRIES = Counter("ai_upstream_retries", "Повторные попытки обращения к внешнему API")
+TOKEN_USAGE = Counter("ai_token_usage", "Количество токенов внешнего API", ["direction"])
 
 redis_client = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=True)
 
@@ -102,20 +107,34 @@ def call_claudehub(prompt: str) -> str:
         },
     )
     for attempt in range(UPSTREAM_MAX_RETRIES + 1):
+        attempt_start = time.perf_counter()
         try:
             with urllib.request.urlopen(req, timeout=CLAUDEHUB_TIMEOUT_SECONDS) as resp:
                 data = json.loads(resp.read())
-            text = "".join(block.get("text", "") for block in data["content"] if block.get("type") == "text")
+            UPSTREAM_REQUESTS.labels(status=str(resp.status)).inc()
+            UPSTREAM_LATENCY.observe(time.perf_counter() - attempt_start)
+            usage = data.get("usage", {})
+            for direction, key in (("input", "input_tokens"), ("output", "output_tokens")):
+                value = usage.get(key)
+                if isinstance(value, (int, float)):
+                    TOKEN_USAGE.labels(direction=direction).inc(value)
+            text = "".join(block.get("text", "") for block in data.get("content", []) if block.get("type") == "text")
             if not text:
                 raise UpstreamError(502)
             return text
         except urllib.error.HTTPError as e:
+            UPSTREAM_REQUESTS.labels(status=str(e.code)).inc()
+            UPSTREAM_LATENCY.observe(time.perf_counter() - attempt_start)
             if e.code not in RETRYABLE_STATUSES or attempt == UPSTREAM_MAX_RETRIES:
                 raise UpstreamError(e.code)
+            UPSTREAM_RETRIES.inc()
             time.sleep(float(e.headers.get("Retry-After", "1")) if e.code == 429 else 2**attempt)
         except (urllib.error.URLError, TimeoutError):
+            UPSTREAM_REQUESTS.labels(status="network_error").inc()
+            UPSTREAM_LATENCY.observe(time.perf_counter() - attempt_start)
             if attempt == UPSTREAM_MAX_RETRIES:
                 raise UpstreamError(502)
+            UPSTREAM_RETRIES.inc()
             time.sleep(2**attempt)
 
 
@@ -142,7 +161,9 @@ def ask(body: AskIn, request: Request):
         cached = redis_client.get(cache_key)
         if cached is not None:
             answer, from_cache = cached, True
+            CACHE_REQUESTS.labels(result="hit").inc()
         else:
+            CACHE_REQUESTS.labels(result="miss").inc()
             try:
                 answer = call_claudehub(body.prompt)
             except UpstreamError as e:

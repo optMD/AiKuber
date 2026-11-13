@@ -8,3 +8,4 @@ resources:
   - ai-inference.yaml
   - frontend.yaml
   - gateway.yaml
+  - grafana-dashboard.yaml
