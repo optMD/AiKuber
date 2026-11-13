@@ -9,3 +9,5 @@ data:
   REDIS_HOST: redis
   RATE_LIMIT_PER_MINUTE: "30"
   CACHE_TTL_SECONDS: "3600"
+  CLAUDEHUB_BASE_URL: https://api.claudehub.fun
+  CLAUDEHUB_MODEL: claude-haiku-4.5

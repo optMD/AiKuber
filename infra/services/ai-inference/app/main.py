@@ -1,6 +1,9 @@
 import hashlib
+import json
 import os
 import time
+import urllib.error
+import urllib.request
 from contextlib import asynccontextmanager
 
 import psycopg
@@ -17,8 +20,13 @@ POSTGRES_USER = os.environ.get("POSTGRES_USER", "ai")
 POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "")
 RATE_LIMIT_PER_MINUTE = int(os.environ.get("RATE_LIMIT_PER_MINUTE", "30"))
 CACHE_TTL_SECONDS = int(os.environ.get("CACHE_TTL_SECONDS", "3600"))
-
-STUB_ANSWER = "Заглушка: внешний API ещё не подключён. Запрос получен и сохранён в истории."
+CLAUDEHUB_BASE_URL = os.environ.get("CLAUDEHUB_BASE_URL", "https://api.claudehub.fun")
+CLAUDEHUB_API_KEY = os.environ.get("CLAUDEHUB_API_KEY", "")
+CLAUDEHUB_MODEL = os.environ.get("CLAUDEHUB_MODEL", "claude-haiku-4.5")
+CLAUDEHUB_MAX_TOKENS = int(os.environ.get("CLAUDEHUB_MAX_TOKENS", "1024"))
+CLAUDEHUB_TIMEOUT_SECONDS = int(os.environ.get("CLAUDEHUB_TIMEOUT_SECONDS", "60"))
+UPSTREAM_MAX_RETRIES = 3
+RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 
 REQUESTS = Counter("ai_requests", "Запросы к /api/ask по коду ответа", ["status"])
 LATENCY = Histogram("ai_request_latency_seconds", "Время обработки запроса к /api/ask")
@@ -69,6 +77,48 @@ class AskIn(BaseModel):
     prompt: str = Field(min_length=1, max_length=2000)
 
 
+class UpstreamError(Exception):
+    def __init__(self, status_code: int):
+        super().__init__(status_code)
+        self.status_code = status_code
+
+
+def call_claudehub(prompt: str) -> str:
+    payload = json.dumps(
+        {
+            "model": CLAUDEHUB_MODEL,
+            "max_tokens": CLAUDEHUB_MAX_TOKENS,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+    ).encode()
+    req = urllib.request.Request(
+        CLAUDEHUB_BASE_URL + "/v1/messages",
+        data=payload,
+        method="POST",
+        headers={
+            "x-api-key": CLAUDEHUB_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+    )
+    for attempt in range(UPSTREAM_MAX_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=CLAUDEHUB_TIMEOUT_SECONDS) as resp:
+                data = json.loads(resp.read())
+            text = "".join(block.get("text", "") for block in data["content"] if block.get("type") == "text")
+            if not text:
+                raise UpstreamError(502)
+            return text
+        except urllib.error.HTTPError as e:
+            if e.code not in RETRYABLE_STATUSES or attempt == UPSTREAM_MAX_RETRIES:
+                raise UpstreamError(e.code)
+            time.sleep(float(e.headers.get("Retry-After", "1")) if e.code == 429 else 2**attempt)
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == UPSTREAM_MAX_RETRIES:
+                raise UpstreamError(502)
+            time.sleep(2**attempt)
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
@@ -93,7 +143,12 @@ def ask(body: AskIn, request: Request):
         if cached is not None:
             answer, from_cache = cached, True
         else:
-            answer, from_cache = STUB_ANSWER, False
+            try:
+                answer = call_claudehub(body.prompt)
+            except UpstreamError as e:
+                status = 502
+                raise HTTPException(status_code=502, detail=f"Внешний API вернул ошибку {e.status_code}") from e
+            from_cache = False
             redis_client.set(cache_key, answer, ex=CACHE_TTL_SECONDS)
 
         with db_connect() as conn:

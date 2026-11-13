@@ -13,3 +13,4 @@ create_once() {
 
 create_once postgres-credentials --from-literal=POSTGRES_PASSWORD="$(openssl rand -hex 16)"
 create_once grafana-admin --from-literal=admin-user=admin --from-literal=admin-password="$(openssl rand -hex 12)"
+create_once claudehub-credentials --from-literal=CLAUDEHUB_API_KEY="${CLAUDEHUB_API_KEY:?переменная CLAUDEHUB_API_KEY не задана}"

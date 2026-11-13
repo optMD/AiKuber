@@ -29,6 +29,11 @@ spec:
                 secretKeyRef:
                   name: postgres-credentials
                   key: POSTGRES_PASSWORD
+            - name: CLAUDEHUB_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: claudehub-credentials
+                  key: CLAUDEHUB_API_KEY
           readinessProbe:
             httpGet:
               path: /api/health
