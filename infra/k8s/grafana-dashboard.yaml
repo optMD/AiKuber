@@ -8,89 +8,27 @@ data:
       "annotations": {"list": []},
       "editable": false,
       "graphTooltip": 1,
+      "liveNow": false,
       "panels": [
-        {
-          "type": "stat",
-          "title": "Запросы в минуту",
-          "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
-          "targets": [{"expr": "sum(rate(ai_requests_total[5m])) * 60", "refId": "A"}],
-          "fieldConfig": {"defaults": {"unit": "reqpm"}, "overrides": []}
-        },
-        {
-          "type": "stat",
-          "title": "Доля ответов из кэша",
-          "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
-          "targets": [{"expr": "100 * sum(rate(ai_cache_requests_total{result=\"hit\"}[5m])) / clamp_min(sum(rate(ai_cache_requests_total[5m])), 0.001)", "refId": "A"}],
-          "fieldConfig": {"defaults": {"unit": "percent", "decimals": 1}, "overrides": []}
-        },
-        {
-          "type": "stat",
-          "title": "Ошибки API",
-          "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
-          "targets": [{"expr": "sum(rate(ai_requests_total{status=~\"4..|5..\"}[5m]))", "refId": "A"}],
-          "fieldConfig": {"defaults": {"unit": "reqps", "decimals": 3, "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 0.01}]}}, "overrides": []}
-        },
-        {
-          "type": "stat",
-          "title": "P95 задержка",
-          "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
-          "targets": [{"expr": "histogram_quantile(0.95, sum(rate(ai_request_latency_seconds_bucket[5m])) by (le))", "refId": "A"}],
-          "fieldConfig": {"defaults": {"unit": "s", "decimals": 2}, "overrides": []}
-        },
-        {
-          "type": "timeseries",
-          "title": "Интенсивность запросов",
-          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
-          "targets": [{"expr": "sum by (status) (rate(ai_requests_total[5m]))", "legendFormat": "status {{status}}", "refId": "A"}],
-          "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []}
-        },
-        {
-          "type": "timeseries",
-          "title": "Задержка запросов",
-          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
-          "targets": [
-            {"expr": "histogram_quantile(0.50, sum(rate(ai_request_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p50", "refId": "A"},
-            {"expr": "histogram_quantile(0.95, sum(rate(ai_request_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p95", "refId": "B"},
-            {"expr": "histogram_quantile(0.99, sum(rate(ai_request_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p99", "refId": "C"}
-          ],
-          "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
-        },
-        {
-          "type": "timeseries",
-          "title": "Внешний API модели",
-          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
-          "targets": [
-            {"expr": "sum by (status) (rate(ai_upstream_requests_total[5m]))", "legendFormat": "status {{status}}", "refId": "A"},
-            {"expr": "rate(ai_upstream_retries_total[5m])", "legendFormat": "retries", "refId": "B"}
-          ],
-          "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []}
-        },
-        {
-          "type": "timeseries",
-          "title": "Токены модели",
-          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
-          "targets": [{"expr": "sum by (direction) (rate(ai_token_usage_total[5m]))", "legendFormat": "{{direction}}", "refId": "A"}],
-          "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
-        },
-        {
-          "type": "timeseries",
-          "title": "Перезапуски подов",
-          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
-          "targets": [{"expr": "sum by (pod) (kube_pod_container_status_restarts_total{namespace=\"niaspo\"})", "legendFormat": "{{pod}}", "refId": "A"}],
-          "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
-        },
-        {
-          "type": "timeseries",
-          "title": "Память подов",
-          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
-          "targets": [{"expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"niaspo\",container!=\"\"})", "legendFormat": "{{pod}}", "refId": "A"}],
-          "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []}
-        }
+        {"type":"text","title":"","gridPos":{"h":2,"w":24,"x":0,"y":0},"options":{"mode":"markdown","content":"# AI Inference\nМониторинг качества ответа, кэша, внешнего API и состояния Kubernetes"}},
+        {"type":"stat","title":"Запросы / мин","gridPos":{"h":5,"w":6,"x":0,"y":2},"targets":[{"expr":"sum(rate(ai_requests_total[5m])) * 60","refId":"A"}],"options":{"colorMode":"background","graphMode":"area","justifyMode":"center","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"auto"},"fieldConfig":{"defaults":{"unit":"reqpm","decimals":1,"color":{"mode":"thresholds"},"thresholds":{"mode":"absolute","steps":[{"color":"blue","value":null},{"color":"green","value":1},{"color":"orange","value":30}]}},"overrides":[]}},
+        {"type":"stat","title":"Cache hit rate","gridPos":{"h":5,"w":6,"x":6,"y":2},"targets":[{"expr":"100 * sum(rate(ai_cache_requests_total{result=\"hit\"}[5m])) / clamp_min(sum(rate(ai_cache_requests_total[5m])), 0.001)","refId":"A"}],"options":{"colorMode":"background","graphMode":"area","justifyMode":"center","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"value_and_name"},"fieldConfig":{"defaults":{"unit":"percent","decimals":1,"color":{"mode":"thresholds"},"thresholds":{"mode":"absolute","steps":[{"color":"red","value":null},{"color":"orange","value":40},{"color":"green","value":70}]}},"overrides":[]}},
+        {"type":"stat","title":"Ошибки API","gridPos":{"h":5,"w":6,"x":12,"y":2},"targets":[{"expr":"100 * sum(rate(ai_requests_total{status=~\"4..|5..\"}[5m])) / clamp_min(sum(rate(ai_requests_total[5m])), 0.001)","refId":"A"}],"options":{"colorMode":"background","graphMode":"area","justifyMode":"center","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"value_and_name"},"fieldConfig":{"defaults":{"unit":"percent","decimals":2,"color":{"mode":"thresholds"},"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"orange","value":1},{"color":"red","value":5}]}},"overrides":[]}},
+        {"type":"stat","title":"P95 задержка","gridPos":{"h":5,"w":6,"x":18,"y":2},"targets":[{"expr":"histogram_quantile(0.95, sum(rate(ai_request_latency_seconds_bucket[5m])) by (le))","refId":"A"}],"options":{"colorMode":"background","graphMode":"area","justifyMode":"center","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"value_and_name"},"fieldConfig":{"defaults":{"unit":"s","decimals":2,"color":{"mode":"thresholds"},"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"orange","value":2},{"color":"red","value":5}]}},"overrides":[]}},
+        {"type":"timeseries","title":"Поток запросов по HTTP-статусу","gridPos":{"h":9,"w":14,"x":0,"y":7},"targets":[{"expr":"sum by (status) (rate(ai_requests_total[5m]))","legendFormat":"HTTP {{status}}","refId":"A"}],"options":{"legend":{"calcs":["lastNotNull","max"],"displayMode":"table","placement":"right"},"tooltip":{"mode":"multi","sort":"desc"}},"fieldConfig":{"defaults":{"unit":"reqps","lineWidth":3,"fillOpacity":20,"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","lineInterpolation":"smooth","showPoints":"never","spanNulls":true}},"overrides":[]}},
+        {"type":"timeseries","title":"Задержка ответа: p50 / p95 / p99","gridPos":{"h":9,"w":10,"x":14,"y":7},"targets":[{"expr":"histogram_quantile(0.50, sum(rate(ai_request_latency_seconds_bucket[5m])) by (le))","legendFormat":"p50","refId":"A"},{"expr":"histogram_quantile(0.95, sum(rate(ai_request_latency_seconds_bucket[5m])) by (le))","legendFormat":"p95","refId":"B"},{"expr":"histogram_quantile(0.99, sum(rate(ai_request_latency_seconds_bucket[5m])) by (le))","legendFormat":"p99","refId":"C"}],"options":{"legend":{"calcs":["lastNotNull","max"],"displayMode":"table","placement":"right"},"tooltip":{"mode":"multi","sort":"desc"}},"fieldConfig":{"defaults":{"unit":"s","lineWidth":3,"fillOpacity":12,"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","lineInterpolation":"smooth","showPoints":"never","spanNulls":true}},"overrides":[]}},
+        {"type":"timeseries","title":"Внешний API модели","gridPos":{"h":8,"w":12,"x":0,"y":16},"targets":[{"expr":"sum by (status) (rate(ai_upstream_requests_total[5m]))","legendFormat":"ответ {{status}}","refId":"A"},{"expr":"rate(ai_upstream_retries_total[5m])","legendFormat":"повторы","refId":"B"}],"options":{"legend":{"calcs":["lastNotNull","max"],"displayMode":"table","placement":"right"},"tooltip":{"mode":"multi","sort":"desc"}},"fieldConfig":{"defaults":{"unit":"reqps","lineWidth":3,"fillOpacity":18,"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","lineInterpolation":"smooth","showPoints":"never","spanNulls":true}},"overrides":[]}},
+        {"type":"timeseries","title":"Использование токенов","gridPos":{"h":8,"w":12,"x":12,"y":16},"targets":[{"expr":"sum by (direction) (rate(ai_token_usage_total[5m]))","legendFormat":"{{direction}}","refId":"A"}],"options":{"legend":{"calcs":["lastNotNull","max"],"displayMode":"table","placement":"right"},"tooltip":{"mode":"multi","sort":"desc"}},"fieldConfig":{"defaults":{"unit":"short","lineWidth":3,"fillOpacity":18,"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","lineInterpolation":"smooth","showPoints":"never","spanNulls":true}},"overrides":[]}},
+        {"type":"timeseries","title":"Потребление памяти подами","gridPos":{"h":8,"w":14,"x":0,"y":24},"targets":[{"expr":"sum by (pod) (container_memory_working_set_bytes{namespace=\"niaspo\",container!=\"\"})","legendFormat":"{{pod}}","refId":"A"}],"options":{"legend":{"calcs":["lastNotNull","max"],"displayMode":"table","placement":"right"},"tooltip":{"mode":"multi","sort":"desc"}},"fieldConfig":{"defaults":{"unit":"bytes","lineWidth":2,"fillOpacity":15,"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","lineInterpolation":"smooth","showPoints":"never","spanNulls":true}},"overrides":[]}},
+        {"type":"timeseries","title":"Рестарты подов","gridPos":{"h":8,"w":10,"x":14,"y":24},"targets":[{"expr":"sum by (pod) (kube_pod_container_status_restarts_total{namespace=\"niaspo\"})","legendFormat":"{{pod}}","refId":"A"}],"options":{"legend":{"calcs":["lastNotNull","max"],"displayMode":"table","placement":"right"},"tooltip":{"mode":"multi","sort":"desc"}},"fieldConfig":{"defaults":{"unit":"short","lineWidth":3,"fillOpacity":12,"color":{"mode":"thresholds"},"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"orange","value":1},{"color":"red","value":3}]},"custom":{"drawStyle":"line","lineInterpolation":"stepAfter","showPoints":"never","spanNulls":true}},"overrides":[]}}
       ],
-      "schemaVersion": 39,
-      "title": "AI Inference и Kubernetes",
-      "uid": "ai-inference",
-      "time": {"from": "now-1h", "to": "now"},
-      "timezone": "browser",
-      "version": 1
+      "schemaVersion":39,
+      "style":"dark",
+      "tags":["ai","kubernetes","observability"],
+      "templating":{"list":[]},
+      "time":{"from":"now-1h","to":"now"},
+      "timezone":"browser",
+      "title":"AI Inference · Operations",
+      "uid":"ai-inference",
+      "version":2
     }
