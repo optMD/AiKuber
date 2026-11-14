@@ -59,4 +59,4 @@ jq -e '.data.activeTargets[] | select(.labels.job == "ai-inference" and .health 
 
 echo "--- grafana"
 curl -fsS -o /dev/null -w "%{http_code}\n" "$BASE/grafana/api/health"
-kubectl -n "$NS" get configmap grafana-dashboards -o jsonpath='{.data.ai-inference\\.json}' | grep -q 'AI Inference и Kubernetes'
+kubectl -n "$NS" get configmap grafana-dashboards -o jsonpath='{.data.ai-inference\\.json}' | grep -q '"uid":"ai-inference"'
