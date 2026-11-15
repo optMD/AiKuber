@@ -3,10 +3,13 @@ set -euo pipefail
 
 INFRA="$(cd "$(dirname "$0")/.." && pwd)"
 NS=niaspo
+KUBE_CONTEXT=kind-niaspo
 
 if ! kind get clusters | grep -qx niaspo; then
   kind create cluster --config "$INFRA/kind-config.yaml"
 fi
+
+kubectl config use-context "$KUBE_CONTEXT" >/dev/null
 
 for svc in gateway frontend ai-inference; do
   docker build -t "niaspo-$svc:dev" "$INFRA/services/$svc"
@@ -40,6 +43,10 @@ helm upgrade --install prometheus prometheus-community/prometheus -n "$NS" -f "$
 helm upgrade --install grafana grafana/grafana -n "$NS" -f "$INFRA/helm/grafana-values.yaml"
 
 kubectl apply -k "$INFRA/k8s"
+
+for deploy in ai-inference frontend gateway; do
+  kubectl -n "$NS" rollout restart "deployment/$deploy"
+done
 
 for deploy in postgres redis ai-inference frontend gateway grafana prometheus-server; do
   kubectl -n "$NS" rollout status "deployment/$deploy" --timeout=240s
