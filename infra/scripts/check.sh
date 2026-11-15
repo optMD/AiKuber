@@ -17,6 +17,14 @@ ask() {
   curl -fsS -X POST "$BASE/api/ask" -H 'Content-Type: application/json' -d "{\"prompt\":\"проверка $RUN_ID\"}"
 }
 
+check_cache_response() {
+  local expected=$1
+  local response
+  response=$(ask)
+  echo "$response"
+  jq -e ".from_cache == $expected" <<<"$response" >/dev/null
+}
+
 RUN_ID="$(date +%s)-$$"
 
 kubectl -n "$NS" get pods
@@ -31,14 +39,10 @@ curl -fsS "$BASE/api/health"
 echo
 
 echo "--- api ask (первый запрос, ожидается from_cache: false)"
-first=$(ask)
-echo "$first"
-jq -e '.from_cache == false' <<<"$first" >/dev/null
+check_cache_response false
 
 echo "--- api ask (повтор, ожидается from_cache: true)"
-second=$(ask)
-echo "$second"
-jq -e '.from_cache == true' <<<"$second" >/dev/null
+check_cache_response true
 
 echo "--- metrics ai-inference"
 metrics=$(kubectl get --raw "/api/v1/namespaces/$NS/services/ai-inference:8000/proxy/metrics")
