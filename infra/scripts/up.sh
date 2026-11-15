@@ -4,6 +4,8 @@ set -euo pipefail
 INFRA="$(cd "$(dirname "$0")/.." && pwd)"
 NS=niaspo
 KUBE_CONTEXT=kind-niaspo
+APP_DEPLOYMENTS=(ai-inference frontend gateway)
+ALL_DEPLOYMENTS=(postgres redis "${APP_DEPLOYMENTS[@]}" grafana prometheus-server)
 
 if ! kind get clusters | grep -qx niaspo; then
   kind create cluster --config "$INFRA/kind-config.yaml"
@@ -44,11 +46,11 @@ helm upgrade --install grafana grafana/grafana -n "$NS" -f "$INFRA/helm/grafana-
 
 kubectl apply -k "$INFRA/k8s"
 
-for deploy in ai-inference frontend gateway; do
+for deploy in "${APP_DEPLOYMENTS[@]}"; do
   kubectl -n "$NS" rollout restart "deployment/$deploy"
 done
 
-for deploy in postgres redis ai-inference frontend gateway grafana prometheus-server; do
+for deploy in "${ALL_DEPLOYMENTS[@]}"; do
   kubectl -n "$NS" rollout status "deployment/$deploy" --timeout=240s
 done
 
