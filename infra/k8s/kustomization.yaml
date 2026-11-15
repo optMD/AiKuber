@@ -1,6 +1,17 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: niaspo
+replicas:
+  - name: ai-inference
+    count: 1
+  - name: frontend
+    count: 1
+  - name: gateway
+    count: 1
+  - name: postgres
+    count: 1
+  - name: redis
+    count: 1
 resources:
   - app-config.yaml
   - postgres.yaml

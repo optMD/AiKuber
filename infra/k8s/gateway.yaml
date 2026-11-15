@@ -5,7 +5,6 @@ metadata:
   labels:
     app: gateway
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: gateway
